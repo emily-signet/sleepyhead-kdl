@@ -1,0 +1,21 @@
+[package]
+name = "sleepyhead-kdl"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["std"]
+std = ["logos/std", "memchr/std"]
+alloc = []
+
+[dependencies]
+heapless = "0.7"
+memchr = { version = "2.4", default-features = false }
+logos = { version = "0.12", default-features = false, features = ["export_derive"] }
+easybench = "*"
+kdl = "*"
+
+[dependencies.lexical]
+version = "6.1.0"
+default-features = false
+features = ["parse-integers", "parse-floats", "format", "power-of-two"]
