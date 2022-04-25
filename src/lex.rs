@@ -26,9 +26,11 @@ pub enum Token<'input> {
     Backslash,
     #[regex(r#"[\u000D\u000A\u0085\u000C\u2028\u2029]+"#)]
     Newline,
-    #[regex("r#*\"", parsers::parse_raw_string)]
     #[regex(r#""([^"\\]|\\t|\\u|\\n|\\")*""#, parsers::parse_str)]
-    String(&'input str),
+    StringWithEscapes(&'input str),
+    #[regex("r#*\"", parsers::parse_raw_string)]
+    #[regex(r#""[^"\\]*""#, priority = 5, callback = parsers::parse_str)]
+    StringWithNoEscapes(&'input str),
     #[regex(
         r"[0-9]*\.[0-9]+([eE][+-]?[0-9]+)?|[0-9]+[eE][+-]?[0-9]+",
         parsers::float
