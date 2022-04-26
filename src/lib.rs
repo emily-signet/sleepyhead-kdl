@@ -25,6 +25,7 @@ pub enum ParseError {
     UnrecognizedEscape,
     UnexpectedEOF,
     BadUnicodeEscape,
+    TypeDescriptorWithNoValue,
 }
 
 /// Result alias.
@@ -51,7 +52,7 @@ pub enum KdlEvent<'input> {
     NodeOpen {
         name: KdlString<'input>,
         attrs: Container<KdlProperty<'input>>,
-        values: Container<KdlValue<'input>>,
+        values: Container<TypedValue<'input>>,
         has_children: bool,
     },
     /// End of a childless node.

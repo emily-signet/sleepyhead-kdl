@@ -13,6 +13,23 @@ use std::borrow::Cow;
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::borrow::Cow;
 
+/// A kdl value with an optional type annotation
+#[derive(Debug, Copy, Clone)]
+pub struct TypedValue<'a> {
+    pub ty: Option<&'a str>,
+    pub val: KdlValue<'a>,
+}
+
+impl<'a> fmt::Display for TypedValue<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(t) = self.ty {
+            write!(f, "({}){}", t, self.val)
+        } else {
+            write!(f, "{}", self.val)
+        }
+    }
+}
+
 /// A kdl Value; either a string, integer (represented as i64), float (represented as f64), bool, or null.
 #[derive(Debug, Copy, Clone)]
 pub enum KdlValue<'a> {
@@ -108,5 +125,5 @@ impl<'a> fmt::Display for KdlString<'a> {
 #[derive(Debug, Copy, Clone)]
 pub struct KdlProperty<'a> {
     pub key: KdlString<'a>,
-    pub value: KdlValue<'a>,
+    pub value: TypedValue<'a>,
 }

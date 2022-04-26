@@ -120,12 +120,12 @@ impl<'input, T: Iterator<Item = Token<'input>>> Parser<'input, T> {
         }
     }
 
-    #[allow(unused_must_use)]
+    #[allow(non_snake_case, unused_variables, unused_must_use)]
     fn node_open(&mut self) -> ParseResult<KdlEvent<'input>> {
         let name = next_if!(ret IdentOrStr; self).ok_or(ParseError::NotANode)?;
 
         let mut attrs: Container<KdlProperty<'input>> = Container::new();
-        let mut values: Container<KdlValue<'input>> = Container::new();
+        let mut values: Container<TypedValue<'input>> = Container::new();
         let mut has_children: bool = false;
 
         while let Some(next_token) = self.inner.peek() {
@@ -166,12 +166,31 @@ impl<'input, T: Iterator<Item = Token<'input>>> Parser<'input, T> {
                     if peek!(self, Token::Equals) {
                         attrs.push(self.property(ident)?);
                     } else if !is_ident {
-                        values.push(KdlValue::String(ident));
+                        values.push(TypedValue {
+                            ty: None,
+                            val: KdlValue::String(ident),
+                        });
                     }
+                }
+                Token::TyDescriptor(_) => {
+                    let name = match self.inner.next().unwrap() {
+                        Token::TyDescriptor(n) => n,
+                        _ => unreachable!(),
+                    };
+
+                    let val =
+                        next_if!(self, KdlValues).ok_or(ParseError::TypeDescriptorWithNoValue)?;
+                    values.push(TypedValue {
+                        ty: Some(name),
+                        val: token_to_value!(val),
+                    })
                 }
                 Token::Integer(_) | Token::Float(_) | Token::True | Token::False | Token::Null => {
                     let val = self.inner.next().unwrap();
-                    values.push(token_to_value!(val));
+                    values.push(TypedValue {
+                        ty: None,
+                        val: token_to_value!(val),
+                    });
                 }
                 _ => return Err(ParseError::NotANode),
             }
@@ -194,11 +213,30 @@ impl<'input, T: Iterator<Item = Token<'input>>> Parser<'input, T> {
     #[allow(unused_variables, non_snake_case)]
     fn property(&mut self, ident: KdlString<'input>) -> ParseResult<KdlProperty<'input>> {
         self.inner.next(); // the only invocation of this checks if we have an Equals, so it's safe to just assume that!
-        let value = next_if!(self, KdlValues).ok_or(ParseError::IncompleteProperty)?;
+
+        let mut ty_desc = None;
+
+        let value = match self.inner.next().ok_or(ParseError::IncompleteProperty)? {
+            Token::TyDescriptor(desc) => {
+                ty_desc = Some(desc);
+                token_to_value!(next_if!(self, KdlValues).ok_or(ParseError::IncompleteProperty)?)
+            }
+            Token::Integer(i) => KdlValue::Integer(i),
+            Token::StringWithEscapes(s) => KdlValue::String(KdlString::Escaped(s)),
+            Token::StringWithNoEscapes(s) => KdlValue::String(KdlString::Escapeless(s)),
+            Token::Float(f) => KdlValue::Float(f),
+            Token::True => KdlValue::Bool(true),
+            Token::False => KdlValue::Bool(false),
+            Token::Null => KdlValue::Null,
+            _ => return Err(ParseError::IncompleteProperty),
+        };
 
         Ok(KdlProperty {
             key: ident,
-            value: token_to_value!(value),
+            value: TypedValue {
+                ty: ty_desc,
+                val: value,
+            },
         })
     }
 }

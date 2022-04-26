@@ -14,7 +14,7 @@ use crate::{KdlEvent, ParseResult};
 pub struct KdlNode<'a> {
     pub name: Cow<'a, str>,
     pub attrs: Vec<KdlProperty<'a>>,
-    pub values: Vec<KdlValue<'a>>,
+    pub values: Vec<TypedValue<'a>>,
     pub children: Vec<KdlNode<'a>>,
 }
 
