@@ -28,7 +28,7 @@ pub fn parse_document<'a, T: Iterator<Item = Token<'a>>>(
 }
 
 /// Adds children nodes to a vector, consuming events from a parser.
-pub fn add_children<'a, T: Iterator<Item = Token<'a>>>(
+pub(crate) fn add_children<'a, T: Iterator<Item = Token<'a>>>(
     parser: &mut Parser<'a, T>,
     children: &mut Vec<KdlNode<'a>>,
 ) -> ParseResult<()> {
