@@ -110,4 +110,3 @@ pub struct KdlProperty<'a> {
     pub key: KdlString<'a>,
     pub value: KdlValue<'a>,
 }
-

@@ -1,50 +1,40 @@
+use sleepyhead_kdl::assembler::*;
 use sleepyhead_kdl::parser::Parser;
-use sleepyhead_kdl::KdlEvent;
 
 fn main() {
+    fn print_node(ident: usize, node: KdlNode<'_>) {
+        print!("{}<{}", " ".repeat(ident), node.name);
+
+        for attr in node.attrs {
+            print!(" {}={}", attr.key, attr.value);
+        }
+
+        for value in node.values {
+            print!(" {}", value);
+        }
+
+        print!(">");
+
+        let has_children = !node.children.is_empty();
+
+        if has_children {
+            println!("");
+        } else {
+            println!("</{}>", node.name);
+        }
+
+        for child in node.children {
+            print_node(ident + 2, child);
+        }
+
+        if has_children {
+            println!("{}</{}>", " ".repeat(ident), node.name);
+        }
+    }
+
     let mut ident = 0;
     let mut parser = Parser::from_str(include_str!("./schema.kdl"));
-    while let Some(node) = parser.next() {
-        let node = node.unwrap();
-
-        match node {
-            KdlEvent::NodeOpen {
-                name,
-                attrs,
-                values,
-                has_children,
-            } => {
-                print!(
-                    "{}<{} {} {}>",
-                    " ".repeat(ident),
-                    name,
-                    attrs
-                        .into_iter()
-                        .map(|p| format!("{}={}", p.key, p.value))
-                        .collect::<Vec<String>>()
-                        .join(" "),
-                    values
-                        .into_iter()
-                        .map(|v| format!("{v}"))
-                        .collect::<Vec<String>>()
-                        .join(" ")
-                );
-
-                if has_children {
-                    ident += 2;
-                    print!("\n");
-                } else {
-                    use std::io::Write;
-                    std::io::stdout().flush();
-                }
-            }
-            KdlEvent::BracketedNodeClose(n) => {
-                ident -= 2;
-                println!("{}</{}>", " ".repeat(ident), n);
-            }
-            KdlEvent::NodeClose(n) => {
-                println!("</{}>", n);
-            }
-        }
+    for root_node in parse_document(&mut parser).unwrap() {
+        print_node(0, root_node);
     }
 }

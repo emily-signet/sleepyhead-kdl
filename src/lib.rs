@@ -1,19 +1,18 @@
 #![doc = include_str!("../README.md")]
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(all(not(feature = "std"), feature = "alloc"))]
 extern crate alloc;
 
-/// Alias for a container; either alloc::Vec, std::Vec, or heapless::Vec 
+/// Alias for a container; either alloc::Vec, std::Vec, or heapless::Vec
 #[cfg(feature = "std")]
 pub type Container<A> = std::vec::Vec<A>;
 
-/// Alias for a container; either alloc::Vec, std::Vec, or heapless::Vec 
+/// Alias for a container; either alloc::Vec, std::Vec, or heapless::Vec
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 pub type Container<A> = alloc::vec::Vec<A>;
 
-/// Alias for a container; either alloc::Vec, std::Vec, or heapless::Vec 
+/// Alias for a container; either alloc::Vec, std::Vec, or heapless::Vec
 #[cfg(all(not(feature = "alloc"), not(feature = "std")))]
 pub type Container<A> = heapless::Vec<A, 128>;
 
@@ -31,15 +30,17 @@ pub enum ParseError {
 /// Result alias.
 pub type ParseResult<T> = core::result::Result<T, ParseError>;
 
+/// utils to assemble a series of events into [KdlNode]s
+#[cfg(any(feature = "alloc", feature = "std"))]
+pub mod assembler;
 /// AST types; [ast::KdlValue] and [ast::KdlString]
 pub mod ast;
-/// the kdl parser!
-pub mod parser;
 /// default kdl lexer
 pub mod lex;
+/// the kdl parser!
+pub mod parser;
 /// utils for processing string escapes
 pub mod unescape;
-
 
 use ast::*;
 
@@ -58,4 +59,3 @@ pub enum KdlEvent<'input> {
     /// End of a node that had children / a children block ({}).
     BracketedNodeClose(KdlString<'input>),
 }
-
