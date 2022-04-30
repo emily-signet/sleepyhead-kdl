@@ -10,7 +10,7 @@ use crate::parser::Parser;
 use crate::{KdlEvent, ParseResult};
 
 /// An assembled KdlNode.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct KdlNode<'a> {
     pub name: Cow<'a, str>,
     pub attrs: Vec<KdlProperty<'a>>,

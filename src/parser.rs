@@ -92,6 +92,16 @@ macro_rules! token_to_value {
     };
 }
 
+macro_rules! slash_dash {
+    ($slash_var:ident, $if_not:block) => {
+        if $slash_var {
+            $slash_var = false;
+        } else {
+            $if_not
+        }
+    };
+}
+
 /// KDL parser! Acts as an iterator over [KdlEvent]s.
 pub struct Parser<'input, T: Iterator<Item = Token<'input>>> {
     inner: core::iter::Peekable<T>,
@@ -126,14 +136,25 @@ impl<'input, T: Iterator<Item = Token<'input>>> Parser<'input, T> {
 
         let mut attrs: Container<KdlProperty<'input>> = Container::new();
         let mut values: Container<TypedValue<'input>> = Container::new();
-        let mut has_children: bool = false;
+        let mut has_children = false;
+        let mut slash_dashed = false;
 
         while let Some(next_token) = self.inner.peek() {
             match next_token {
                 Token::BlockOpen => {
                     self.inner.next();
-                    next_if!(self, Token::Newline);
-                    has_children = true;
+                    if slash_dashed {
+                        'inner: while let Some(next_one) = self.inner.next() {
+                            if next_one == Token::BlockClose {
+                                break 'inner;
+                            }
+                        }
+
+                    } else {
+                        next_if!(self, Token::Newline);
+                        has_children = true;
+                    }
+
                     break;
                 }
                 Token::Backslash => {
@@ -164,11 +185,17 @@ impl<'input, T: Iterator<Item = Token<'input>>> Parser<'input, T> {
                     };
 
                     if peek!(self, Token::Equals) {
-                        attrs.push(self.property(ident)?);
+                        let property = self.property(ident)?;
+
+                        slash_dash!(slash_dashed, {
+                            attrs.push(property);
+                        });
                     } else if !is_ident {
-                        values.push(TypedValue {
-                            ty: None,
-                            val: KdlValue::String(ident),
+                        slash_dash!(slash_dashed, {
+                            values.push(TypedValue {
+                                ty: None,
+                                val: KdlValue::String(ident),
+                            });
                         });
                     }
                 }
@@ -180,17 +207,28 @@ impl<'input, T: Iterator<Item = Token<'input>>> Parser<'input, T> {
 
                     let val =
                         next_if!(self, KdlValues).ok_or(ParseError::TypeDescriptorWithNoValue)?;
-                    values.push(TypedValue {
-                        ty: Some(name),
-                        val: token_to_value!(val),
-                    })
+
+                    slash_dash!(slash_dashed, {
+                        values.push(TypedValue {
+                            ty: Some(name),
+                            val: token_to_value!(val),
+                        });
+                    });
                 }
                 Token::Integer(_) | Token::Float(_) | Token::True | Token::False | Token::Null => {
                     let val = self.inner.next().unwrap();
-                    values.push(TypedValue {
-                        ty: None,
-                        val: token_to_value!(val),
+
+                    slash_dash!(slash_dashed, {
+                        values.push(TypedValue {
+                            ty: None,
+                            val: token_to_value!(val),
+                        });
                     });
+                }
+                Token::SlashDash => {
+                    slash_dashed = true;
+                    self.inner.next();
+                    continue;
                 }
                 _ => return Err(ParseError::NotANode),
             }
@@ -270,6 +308,15 @@ impl<'input, T: Iterator<Item = Token<'input>>> Iterator for Parser<'input, T> {
 
                     if let Some(to_close) = self.nodes_to_close.pop_back() {
                         return Some(Ok(KdlEvent::NodeClose(to_close)));
+                    } else {
+                        continue;
+                    }
+                }
+                Token::SlashDash => {
+                    self.inner.next();
+
+                    if let Err(e) = self.node_open() {
+                        return Some(Err(e));
                     } else {
                         continue;
                     }

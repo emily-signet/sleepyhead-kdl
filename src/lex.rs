@@ -26,7 +26,10 @@ pub enum Token<'input> {
     Backslash,
     #[regex(r#"[\u000D\u000A\u0085\u000C\u2028\u2029]+"#)]
     Newline,
-    #[regex(r#""([^"\\]|\\t|\\u|\\n|\\")*""#, parsers::parse_str)]
+    #[regex(
+        r#""([^"\\]|\\b|\\f|\\/|\\t|\\u|\\n|\\"|\\r|\\\\)*""#,
+        parsers::parse_str
+    )]
     StringWithEscapes(&'input str),
     #[regex("r#*\"", parsers::parse_raw_string)]
     #[regex(r#""[^"\\]*""#, priority = 5, callback = parsers::parse_str)]
@@ -39,7 +42,7 @@ pub enum Token<'input> {
     #[regex(r"0[xX][0-9a-fA-F_]+", parsers::hex)]
     #[regex(r"0o[01234567_]+", parsers::oct)]
     #[regex(r"0b[10_]+", parsers::bin)]
-    #[regex(r"[\d_]+", priority = 2, callback = parsers::int)]
+    #[regex(r"[+-]?[\d_]+", priority = 2, callback = parsers::int)]
     Integer(i64),
     #[regex(
         r#"\([^0-9\x00-\x20/\\(){}<>;\[\]=,"]+[^\x00-\x20/\\(){}<>;\[\]=,"]*\)"#,
@@ -71,6 +74,10 @@ pub(crate) mod parsers {
         .internal_digit_separator(true)
         .trailing_digit_separator(true)
         .consecutive_digit_separator(true)
+        .case_sensitive_base_prefix(false)
+        .case_sensitive_base_suffix(false)
+        .case_sensitive_exponent(false)
+        .case_sensitive_special(false)
         .radix(16)
         .build();
     const OCT_FORMAT: u128 = NumberFormatBuilder::new()

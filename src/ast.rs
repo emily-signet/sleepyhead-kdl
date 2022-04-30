@@ -20,6 +20,12 @@ pub struct TypedValue<'a> {
     pub val: KdlValue<'a>,
 }
 
+impl<'a> PartialEq for TypedValue<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.val == other.val
+    }
+}
+
 impl<'a> fmt::Display for TypedValue<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(t) = self.ty {
@@ -31,13 +37,56 @@ impl<'a> fmt::Display for TypedValue<'a> {
 }
 
 /// A kdl Value; either a string, integer (represented as i64), float (represented as f64), bool, or null.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum KdlValue<'a> {
     String(KdlString<'a>),
     Integer(i64),
     Float(f64),
     Bool(bool),
     Null,
+}
+
+impl<'a> KdlValue<'a> {
+    pub fn as_kdlstring(&self) -> Option<&KdlString<'a>> {
+        if let KdlValue::String(s) = self {
+            Some(s)
+        } else {
+            None
+        }
+    }
+
+    #[cfg(any(feature = "std", feature = "alloc"))]
+    pub fn as_str(&self) -> Option<Cow<'a, str>> {
+        if let KdlValue::String(s) = self {
+            s.unescape().ok()
+        } else {
+            None
+        }
+    }
+
+    pub fn as_int(&self) -> Option<&i64> {
+        if let KdlValue::Integer(i) = self {
+            Some(i)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_float(&self) -> Option<&f64> {
+        if let KdlValue::Float(f) = self {
+            Some(f)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_bool(&self) -> Option<&bool> {
+        if let KdlValue::Bool(b) = self {
+            Some(b)
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> fmt::Display for KdlValue<'a> {
@@ -54,6 +103,8 @@ impl<'a> fmt::Display for KdlValue<'a> {
 }
 
 /// Wrapper type over a string that may or may not contain escapes. This serves to make any escape-processing lazy and allows for a hot path where the string doesn't have any escapes.
+/// ## Panics
+/// In a no_std build, comparing two KdlStrings can lead to a panic if one of the strings contains invalid escapes.
 #[derive(Debug, Copy, Clone)]
 pub enum KdlString<'a> {
     Escapeless(&'a str),
@@ -84,6 +135,23 @@ impl<'a> KdlString<'a> {
     }
 }
 
+impl<'a> PartialEq for KdlString<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        #[cfg(any(feature = "std", feature = "alloc"))]
+        {
+            match (self.unescape(), other.unescape()) {
+                (Ok(lhs), Ok(rhs)) => lhs == rhs,
+                _ => false,
+            }
+        }
+
+        #[cfg(all(not(feature = "std"), not(feature = "alloc")))]
+        {
+            self.unescape_iter().eq(other.unescape_iter())
+        }
+    }
+}
+
 impl<'a> fmt::Display for KdlString<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[cfg(any(feature = "std", feature = "alloc"))]
@@ -96,7 +164,7 @@ impl<'a> fmt::Display for KdlString<'a> {
             };
         }
 
-        #[cfg(not(feature = "std"))]
+        #[cfg(all(not(feature = "std"), not(feature = "alloc")))]
         {
             return match self {
                 KdlString::Escapeless(s) => write!(f, "{}", s),
@@ -122,7 +190,7 @@ impl<'a> fmt::Display for KdlString<'a> {
 }
 
 /// A kdl property, containing a [key](KdlString) and a [value](KdlValue).
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct KdlProperty<'a> {
     pub key: KdlString<'a>,
     pub value: TypedValue<'a>,
